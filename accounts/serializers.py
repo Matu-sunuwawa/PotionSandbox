@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.conf import settings
 from django.db import transaction
 
-from .models import User, BankAccountType, UserBankAccount, UserAddress, VerificationCode, TemporaryCode
+from .models import *
 from .constants import GENDER_CHOICE
 
 from datetime import datetime, timedelta
@@ -220,3 +220,106 @@ class UserLoginSerializer(serializers.Serializer):
             "access": str(refresh.access_token),
             "user": user,
         }
+    
+
+class CentralBankAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CentralBankAccount
+        fields = ['id', 'name', 'account_no', 'balance']
+        read_only_fields = ['id', 'name', 'account_no', 'balance']
+
+
+# class InterbankTransferSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = InterbankTransfer
+#         fields = ['sender_account', 'receiver_account', 'amount', 'reference']
+#         extra_kwargs = {
+#             'sender_account': {'read_only': True}
+#         }
+
+#     def validate_receiver_account(self, value):
+#         """Validate the receiving account exists"""
+#         if not UserBankAccount.objects.filter(account_no=value).exists():
+#             raise serializers.ValidationError("Receiver account not found")
+#         return value
+
+#     def validate_amount(self, value):
+#         if value <= 0:
+#             raise serializers.ValidationError("Amount must be positive")
+#         return value
+
+
+class UserTransferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InterbankTransfer
+        fields = ['receiver_account', 'amount', 'reference']
+        
+    def validate_receiver_account(self, value):
+        if self.context['request'].user.is_superuser:
+            raise serializers.ValidationError("Superuser action not allowed.")
+        if not UserBankAccount.objects.filter(account_no=value).exists():
+            raise serializers.ValidationError("Receiver account not found")
+        if value == self.context['request'].user.account.account_no:
+            raise serializers.ValidationError("Cannot transfer to yourself")
+        return value
+
+class CentralBankTransferDepositSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InterbankTransfer
+        fields = ['receiver_account', 'amount', 'reference']
+
+    def validate_receiver_account(self, value):
+        """Validate the receiving account exists"""
+        if not UserBankAccount.objects.filter(account_no=value).exists():
+            raise serializers.ValidationError("The User Account is not found")
+        return value
+
+    def validate(self, data):
+        """Validate amount against account limits"""
+        amount = data['amount']
+        min_deposit = settings.MINIMUM_DEPOSIT_AMOUNT
+
+        if amount < min_deposit:
+            raise serializers.ValidationError({
+                'amount': f'You can withdraw at least {min_deposit} $'
+            })
+
+        return data
+
+
+class CentralBankTransferWithdrawSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InterbankTransfer
+        fields = ['receiver_account', 'amount', 'reference']
+
+
+    def validate_receiver_account(self, value):
+        """Validate the receiving account exists"""
+        if not UserBankAccount.objects.filter(account_no=value).exists():
+            raise serializers.ValidationError("The User Account is not found")
+        return value
+
+    def validate(self, data):
+        """Validate amount against account limits"""
+        user_account = UserBankAccount.objects.get(account_no=data['receiver_account'])
+        amount = data['amount']
+        min_withdraw = settings.MINIMUM_WITHDRAWAL_AMOUNT
+        max_withdraw = user_account.account_type.maximum_withdrawal_amount
+
+        if amount < min_withdraw:
+            raise serializers.ValidationError({
+                'amount': f'You can withdraw at least {min_withdraw} $'
+            })
+
+        if amount > max_withdraw:
+            raise serializers.ValidationError({
+                'amount': f'You can withdraw at most {max_withdraw} $'
+            })
+
+        if amount > user_account.balance:
+            raise serializers.ValidationError({
+                'amount': f'You have {user_account.balance} $ in your account. '
+                          'You cannot withdraw more than your account balance'
+            })
+
+        return data

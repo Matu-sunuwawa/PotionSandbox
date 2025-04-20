@@ -112,6 +112,29 @@ class BankAccountType(models.Model):
         return round(interest, 2)
 
 
+class CentralBankAccount(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    name = models.CharField(max_length=128, default="Central Bank")
+    account_no = models.CharField(max_length=20, unique=True, default="1000012228")
+    balance = models.DecimalField(
+        default=0,
+        max_digits=20,
+        decimal_places=2
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.name} - {self.account_no}"
+
+    @classmethod
+    def get_main_account(cls):
+        account, created = cls.objects.get_or_create(
+            account_no="1000012228",
+            defaults={'name': "Main Central Bank Account"}
+        )
+        return account
+
+
 class UserBankAccount(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     user = models.OneToOneField(
@@ -154,6 +177,24 @@ class UserBankAccount(models.Model):
         )
         start = self.interest_start_date.month
         return [i for i in range(start, 13, interval)]
+    
+
+class InterbankTransfer(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    sender_account = models.CharField(max_length=20)
+    receiver_account = models.CharField(max_length=20)
+    amount = models.DecimalField(decimal_places=2, max_digits=12)
+    reference = models.CharField(max_length=100)
+    status = models.CharField(max_length=20, choices=[
+        ('PENDING', 'Pending'),
+        ('COMPLETED', 'Completed'),
+        ('FAILED', 'Failed')
+    ], default='PENDING')
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.sender_account} → {self.receiver_account} - {self.amount}"
 
 
 class UserAddress(models.Model):

@@ -15,5 +15,10 @@ router.register(
 )
 router.register("login", LoginViewset, basename="login")
 
+router.register("central-bank/detail", CentralBankAccountViewset, basename="central-bank")
+router.register("central-bank/deposit", CentralBankTransferDepositViewset, basename="central-bank-deposit") # Deposite Done by Accountant|SuperUser
+router.register("central-bank/withdraw", CentralBankTransferWithdrawViewset, basename="central-bank-withdraw") # Deposite Done by Accountant|SuperUser
+router.register("user/transfer", UserTransferViewset, basename="users-interbank-transfer")
+
 # Register Viewsets here
 urlpatterns = router.urls + []

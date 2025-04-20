@@ -15,8 +15,8 @@ from rest_framework.viewsets import GenericViewSet
 
 from transactions.models import Transaction
 from transactions.serializers import (
-    DepositSerializer,
-    WithdrawSerializer,
+    # DepositSerializer,
+    # WithdrawSerializer,
     DateRangeSerializer,
     TransactionSerializer
 )
@@ -38,67 +38,69 @@ class TransactionListViewset(GenericViewSet, CreateModelMixin, ListModelMixin):
             
         return queryset
 
-class DepositViewset(GenericViewSet, CreateModelMixin):
-    serializer_class = DepositSerializer
-    permission_classes = [IsAuthenticated]
+# class DepositViewset(GenericViewSet, CreateModelMixin):
+#     serializer_class = DepositSerializer
+#     permission_classes = [IsAuthenticated]
 
-    def get_serializer_context(self):
-        """Add the user's account to the serializer context."""
-        context = super().get_serializer_context()
-        context['account'] = self.request.user.account
-        return context
+#     def get_serializer_context(self):
+#         """Add the user's account to the serializer context."""
+#         context = super().get_serializer_context()
+#         context['account'] = self.request.user.account
+#         return context
 
-    def perform_create(self, serializer):
-        account = self.request.user.account # look at me 😊
-        amount = serializer.validated_data['amount']
+#     def perform_create(self, serializer):
+#         account = self.request.user.account # look at me 😊
+#         central_account = self.request.user.central_account
+#         amount = serializer.validated_data['amount']
         
-        # Handle initial deposit date and interest calculation
-        if not account.initial_deposit_date:
-            now = timezone.now()
-            next_interest_month = int(
-                12 / account.account_type.interest_calculation_per_year
-            )
-            account.initial_deposit_date = now
-            account.interest_start_date = (
-                now + relativedelta(months=+next_interest_month)
-            )
+#         # Handle initial deposit date and interest calculation
+#         if not account.initial_deposit_date:
+#             now = timezone.now()
+#             next_interest_month = int(
+#                 12 / account.account_type.interest_calculation_per_year
+#             )
+#             account.initial_deposit_date = now
+#             account.interest_start_date = (
+#                 now + relativedelta(months=+next_interest_month)
+#             )
 
-        # Update account balance
-        account.balance += amount
-        account.save(update_fields=[
-            'initial_deposit_date',
-            'balance',
-            'interest_start_date'
-        ])
+#         # Update account balance
+#         account.balance += amount
+#         account.save(update_fields=[
+#             'initial_deposit_date',
+#             'balance',
+#             'interest_start_date'
+#         ])
 
-        # Create transaction record
-        serializer.save(
-            account=account,
-            transaction_type=DEPOSIT,
-            balance_after_transaction=account.balance
-        )
+#         # Create transaction record
+#         serializer.save(
+#             account=account,
+#             central_account=central_account,
+#             transaction_type=DEPOSIT,
+#             balance_after_transaction=account.balance
+#         )
 
-class WithdrawViewset(GenericViewSet, CreateModelMixin):
-    serializer_class = WithdrawSerializer
-    permission_classes = [IsAuthenticated]
+# class WithdrawViewset(GenericViewSet, CreateModelMixin):
+#     serializer_class = WithdrawSerializer
+#     permission_classes = [IsAuthenticated]
 
-    def get_serializer_context(self):
-        """Add the user's account to the serializer context."""
-        context = super().get_serializer_context()
-        context['account'] = self.request.user.account
-        return context
+#     def get_serializer_context(self):
+#         """Add the user's account to the serializer context."""
+#         context = super().get_serializer_context()
+#         context['account'] = self.request.user.account
+#         return context
 
-    def perform_create(self, serializer):
-        account = self.request.user.account
-        amount = serializer.validated_data['amount']
+#     def perform_create(self, serializer):
+#         account = self.request.user.account
+#         amount = serializer.validated_data['amount']
 
-        # Update account balance
-        account.balance -= amount
-        account.save(update_fields=['balance'])
+#         # Update account balance
+#         account.balance -= amount
+#         account.save(update_fields=['balance'])
 
-        # Create transaction record
-        serializer.save(
-            account=account,
-            transaction_type=WITHDRAWAL,
-            balance_after_transaction=account.balance
-        )
+#         # Create transaction record
+#         serializer.save(
+#             account=account,
+#             transaction_type=WITHDRAWAL,
+#             balance_after_transaction=account.balance
+#         )

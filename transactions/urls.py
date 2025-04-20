@@ -7,8 +7,8 @@ from .views import *
 router = DefaultRouter()
 
 router.register("transactions", TransactionListViewset, basename="transactions")
-router.register("deposit", DepositViewset, basename="deposit")
-router.register("withdraw", WithdrawViewset, basename="withdraw")
+# router.register("deposit", DepositViewset, basename="deposit")
+# router.register("withdraw", WithdrawViewset, basename="withdraw")
 
 # Register Viewsets here
 urlpatterns = router.urls + []

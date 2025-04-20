@@ -26,6 +26,9 @@ class VerificationCodeAdmin(admin.ModelAdmin):
 class UserBankAccountAdmin(admin.ModelAdmin):
     list_display = ["account_no","balance","account_type","gender","birth_date"]
 
+class CentralBankAccountAdmin(admin.ModelAdmin):
+    list_display = ["name","account_no","balance","created_at"]
+
 class BankAccountTypeAdmin(admin.ModelAdmin):
     list_display = ["name","maximum_withdrawal_amount","annual_interest_rate","interest_calculation_per_year"]
 
@@ -38,3 +41,4 @@ admin.site.register(UserBankAccount, UserBankAccountAdmin)
 admin.site.register(UserAddress, UserAddressAdmin)
 admin.site.register(VerificationCode, VerificationCodeAdmin)
 admin.site.register(TemporaryCode, TempraryCodeAdmin)
+admin.site.register(CentralBankAccount, CentralBankAccountAdmin)

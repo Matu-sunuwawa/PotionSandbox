@@ -6,7 +6,7 @@ from .views import *
 
 router = DefaultRouter()
 
-router.register("user2user/transfer", User2UserViewset, basename="user-to-user-transaction")
+router.register("bank2bank/transfer", Bank2BankViewset, basename="bank-to-bank")
 
 # Register Viewsets here
 urlpatterns = router.urls + []

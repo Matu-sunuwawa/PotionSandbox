@@ -1,57 +1,102 @@
 from rest_framework import serializers
 from django.conf import settings
-from datetime import datetime
-from transactions.models import Transaction
-from accounts.models import UserBankAccount
+from django.db import transaction
 
-class TransactionSerializer(serializers.ModelSerializer):
+from .models import *
+from accounts.models import *
+from transactions.models import *
+# from .constants import GENDER_CHOICE
+
+from datetime import datetime, timedelta
+from uuid import UUID
+
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
+from django.shortcuts import get_object_or_404
+from rest_framework import exceptions, serializers, validators
+
+from django.db import transaction  # Add this import
+
+
+class IntraBankTransferSerializer(serializers.ModelSerializer):
+    destination_account = serializers.CharField(write_only=True)
+    
+    source_account = serializers.SerializerMethodField(read_only=True)
+    destination_details = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Transaction
-        fields = ['amount', 'transaction_type', 'timestamp', 'balance_after_transaction']
-        read_only_fields = ['timestamp', 'balance_after_transaction']
+        fields = [
+            "source_account",
+            "destination_account",
+            "destination_details",
+            "amount",
+            "transaction_type"
+        ]
+        read_only_fields = ["source_account", "destination_details"]
 
-# class DepositSerializer(TransactionSerializer):
-#     def validate_amount(self, value):
-#         min_deposit = settings.MINIMUM_DEPOSIT_AMOUNT
-#         if value < min_deposit:
-#             raise serializers.ValidationError(
-#                 f'You need to deposit at least {min_deposit} $'
-#             )
-#         print("Value:", value)
-#         return value
+    def get_source_account(self, obj):
+        """Current user's account number"""
+        return obj.source_account.account_number
 
-# class WithdrawSerializer(TransactionSerializer):
-#     def validate_amount(self, value):
-#         account = self.context['account']
-#         min_withdraw = settings.MINIMUM_WITHDRAWAL_AMOUNT
-#         max_withdraw = account.account_type.maximum_withdrawal_amount
-#         balance = account.balance
+    def get_destination_details(self, obj):
+        """Structured recipient info"""
+        account = obj.destination_account
+        return {
+            "account_number": account.account_number,
+            "owner": account.owner.get_full_name(),
+            "branch": account.branch.branch_code
+        }
 
-#         if value < min_withdraw:
-#             raise serializers.ValidationError(
-#                 f'You can withdraw at least {min_withdraw} $'
-#             )
-#         if value > max_withdraw:
-#             raise serializers.ValidationError(
-#                 f'You can withdraw at most {max_withdraw} $'
-#             )
-#         if value > balance:
-#             raise serializers.ValidationError(
-#                 f'You have {balance} $ in your account. '
-#                 'You cannot withdraw more than your account balance'
-#             )
-#         return value
+    def validate(self, data):
+        """Validate same-bank transfer conditions"""
+        source_account = self.context['request'].user.account.first()
+        if not source_account:
+            raise serializers.ValidationError("Sender account not found")
 
-class DateRangeSerializer(serializers.Serializer):
-    daterange = serializers.CharField(required=False)
-
-    def validate_daterange(self, value):
         try:
-            dates = value.split(' - ')
-            if len(dates) == 2:
-                for date in dates:
-                    datetime.strptime(date, '%Y-%m-%d')
-                return dates
-            raise serializers.ValidationError("Please select a date range.")
-        except (ValueError, AttributeError):
-            raise serializers.ValidationError("Invalid date range")
+            recipient = BankAccount.objects.get(
+                account_number=data['destination_account'],
+                branch__commercial_bank=source_account.branch.commercial_bank
+            )
+        except BankAccount.DoesNotExist:
+            raise serializers.ValidationError({
+                "destination_account": "Account not found in your bank"
+            })
+
+        if source_account.balance < data['amount']:
+            raise serializers.ValidationError(
+                {"amount": "Insufficient funds"}
+            )
+
+        data['source_account'] = source_account
+        data['destination_account_instance'] = recipient
+        return data
+
+    @transaction.atomic # my beloved logic here
+    def create(self, validated_data):
+        """Execute the transfer atomically"""
+        source = validated_data['source_account']
+        destination = validated_data['destination_account_instance']
+        amount = validated_data['amount']
+
+        source.balance -= amount
+        destination.balance += amount
+        source.save()
+        destination.save()
+
+        return Transaction.objects.create(
+            source_account=source,
+            destination_account=destination,
+            amount=amount,
+            transaction_type="INTRABANK",
+            nbe_settlement_ref=f"INTRA-{datetime.now().strftime('%H%M%S')}"
+        )
+
+
+# I will Teach Myself [Matu Sunuwawa]
+    # Complete Transaction Flow
+    # 1. Client Makes API Request
+    # 2. Serializer Validation Phase [ def validate(self, data): ]
+    # 3. Creation Phase [ def create(self, validated_data): ]
+    # 4.Serialization Phase (When Viewing Data) [ def get_source_account(self, obj): ]

@@ -42,23 +42,12 @@ class UserGeneralInfoSerializer(serializers.ModelSerializer):
             "date_joined",
         ]
 
-class UserAddressSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserAddress
-        fields = [
-            'street_address',
-            'city',
-            'postal_code',
-            'country'
-        ]
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password1 = serializers.CharField(write_only=True)
     password2 = serializers.CharField(write_only=True)
     account_type = serializers.CharField(write_only=True)
-    gender = serializers.ChoiceField(choices=GENDER_CHOICE, write_only=True)
-    birth_date = serializers.DateField(write_only=True)
-    address = UserAddressSerializer(required=False, write_only=True)
+    branch = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
@@ -68,10 +57,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'phone_number',
             'password1',
             'password2',
-            'account_type', # This is the string name from request
-            'gender',
-            'birth_date',
-            'address'
+            'account_type',
+            'branch'
         ]
         extra_kwargs = {
             'password1': {'write_only': True},
@@ -85,14 +72,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        address_data = validated_data.pop('address', None)
         account_type_name = validated_data.pop('account_type') # Get the string name
-        gender = validated_data.pop('gender')
-        birth_date = validated_data.pop('birth_date')
+        branch_code = validated_data.pop('branch')
         password = validated_data.pop('password1')
         validated_data.pop('password2', None)  # Remove password2 as we don't need it anymore
 
-        bank_account_type = BankAccountType.objects.get(name=account_type_name)
+        branch_instance = Branch.objects.get(branch_code=branch_code)
 
         user = User.objects.create(**validated_data)
         user.set_password(password)
@@ -101,16 +86,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         timestamp = datetime.now().strftime("%H%M%S")
         account_no = f"{settings.ACCOUNT_NUMBER_START_FROM}{timestamp}"
 
-        UserBankAccount.objects.create(
-            user=user,
-            gender=gender,
-            birth_date=birth_date,
-            account_type=bank_account_type, # Use the instance here
-            account_no=account_no
+        BankAccount.objects.create(
+            owner=user,
+            branch=branch_instance,
+            account_type=account_type_name, # Use the instance here
+            account_number=account_no
         )
-
-        if address_data:
-            UserAddress.objects.create(user=user, **address_data)
 
         user_registered.send(User, **{"instance": user, "method": "PHONE"})
 
@@ -220,106 +201,4 @@ class UserLoginSerializer(serializers.Serializer):
             "access": str(refresh.access_token),
             "user": user,
         }
-    
 
-class CentralBankAccountSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CentralBankAccount
-        fields = ['id', 'name', 'account_no', 'balance']
-        read_only_fields = ['id', 'name', 'account_no', 'balance']
-
-
-# class InterbankTransferSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = InterbankTransfer
-#         fields = ['sender_account', 'receiver_account', 'amount', 'reference']
-#         extra_kwargs = {
-#             'sender_account': {'read_only': True}
-#         }
-
-#     def validate_receiver_account(self, value):
-#         """Validate the receiving account exists"""
-#         if not UserBankAccount.objects.filter(account_no=value).exists():
-#             raise serializers.ValidationError("Receiver account not found")
-#         return value
-
-#     def validate_amount(self, value):
-#         if value <= 0:
-#             raise serializers.ValidationError("Amount must be positive")
-#         return value
-
-
-class UserTransferSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = InterbankTransfer
-        fields = ['receiver_account', 'amount', 'reference']
-        
-    def validate_receiver_account(self, value):
-        if self.context['request'].user.is_superuser:
-            raise serializers.ValidationError("Superuser action not allowed.")
-        if not UserBankAccount.objects.filter(account_no=value).exists():
-            raise serializers.ValidationError("Receiver account not found")
-        if value == self.context['request'].user.account.account_no:
-            raise serializers.ValidationError("Cannot transfer to yourself")
-        return value
-
-class CentralBankTransferDepositSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = InterbankTransfer
-        fields = ['receiver_account', 'amount', 'reference']
-
-    def validate_receiver_account(self, value):
-        """Validate the receiving account exists"""
-        if not UserBankAccount.objects.filter(account_no=value).exists():
-            raise serializers.ValidationError("The User Account is not found")
-        return value
-
-    def validate(self, data):
-        """Validate amount against account limits"""
-        amount = data['amount']
-        min_deposit = settings.MINIMUM_DEPOSIT_AMOUNT
-
-        if amount < min_deposit:
-            raise serializers.ValidationError({
-                'amount': f'You can withdraw at least {min_deposit} $'
-            })
-
-        return data
-
-
-class CentralBankTransferWithdrawSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = InterbankTransfer
-        fields = ['receiver_account', 'amount', 'reference']
-
-
-    def validate_receiver_account(self, value):
-        """Validate the receiving account exists"""
-        if not UserBankAccount.objects.filter(account_no=value).exists():
-            raise serializers.ValidationError("The User Account is not found")
-        return value
-
-    def validate(self, data):
-        """Validate amount against account limits"""
-        user_account = UserBankAccount.objects.get(account_no=data['receiver_account'])
-        amount = data['amount']
-        min_withdraw = settings.MINIMUM_WITHDRAWAL_AMOUNT
-        max_withdraw = user_account.account_type.maximum_withdrawal_amount
-
-        if amount < min_withdraw:
-            raise serializers.ValidationError({
-                'amount': f'You can withdraw at least {min_withdraw} $'
-            })
-
-        if amount > max_withdraw:
-            raise serializers.ValidationError({
-                'amount': f'You can withdraw at most {max_withdraw} $'
-            })
-
-        if amount > user_account.balance:
-            raise serializers.ValidationError({
-                'amount': f'You have {user_account.balance} $ in your account. '
-                          'You cannot withdraw more than your account balance'
-            })
-
-        return data

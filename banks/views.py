@@ -25,16 +25,7 @@ from transactions.models import *
 from transactions.constants import *
 
 
-class LoginViewset(GenericViewSet, CreateModelMixin):
-    serializer_class = UserLoginSerializer
-
-class RegisterViewset(GenericViewSet, CreateModelMixin):
-    serializer_class = UserRegistrationSerializer
-    queryset = User.objects.all()
-    permission_classes = []
-
-class VerificationCodeViewset(CreateModelMixin, GenericViewSet):
-    serializer_class = CreateVerificationCodeSerializer
-
-class VerificationCodeResendViewset(CreateModelMixin, GenericViewSet):
-    serializer_class = ResendVerificationSerializer
+class Bank2BankViewset(GenericViewSet, CreateModelMixin):
+    serializer_class = Bank2BankTransactionSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = InterbankSettlement.objects.all()

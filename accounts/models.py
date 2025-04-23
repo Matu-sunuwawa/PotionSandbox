@@ -99,7 +99,6 @@ class TemporaryCode(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
 class BankAccount(models.Model):
-    
     account_number = models.PositiveIntegerField(unique=True)
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='accounts')
     account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPES)
@@ -107,6 +106,11 @@ class BankAccount(models.Model):
     currency = models.CharField(max_length=3, default='ETB')
     opened_date = models.DateField(auto_now_add=True)
     owner = models.ForeignKey(User, related_name='account', on_delete=models.CASCADE)
+    webhook_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="Endpoint to notify about incoming transactions"
+    )
 
     def __str__(self):
         return f"{self.account_number} - {self.owner.get_full_name()}"

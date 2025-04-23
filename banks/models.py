@@ -1,6 +1,5 @@
 from django.db import models
 
-from .constants import BANK_TYPES
 
 class NBECentralBank(models.Model):
     total_reserves = models.DecimalField(max_digits=20, decimal_places=2, default=0)
@@ -16,7 +15,6 @@ class CommercialBank(models.Model):
     swift_code = models.CharField(max_length=11, unique=True)
     established_date = models.DateField()
     reserve_balance = models.DecimalField(max_digits=20, decimal_places=2, default=0)
-    bank_type = models.CharField(max_length=20, choices=BANK_TYPES)
     nbe = models.ForeignKey(NBECentralBank, on_delete=models.CASCADE, related_name='commercial_banks')
 
     def __str__(self):

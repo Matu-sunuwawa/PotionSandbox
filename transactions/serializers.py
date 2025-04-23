@@ -1,10 +1,12 @@
 from rest_framework import serializers
 from django.conf import settings
 from django.db import transaction
+from django.utils.timezone import now
 
 from .models import *
 from accounts.models import *
 from transactions.models import *
+from banks.webhooks import WebhookService
 # from .constants import GENDER_CHOICE
 
 from datetime import datetime, timedelta
@@ -84,6 +86,20 @@ class IntraBankTransferSerializer(serializers.ModelSerializer):
         destination.balance += amount
         source.save()
         destination.save()
+
+        transaction.on_commit(
+            lambda: WebhookService.trigger_webhook(
+                destination,
+                {
+                    "event": "transaction.received",
+                    "amount": str(amount),
+                    "currency": source.currency,
+                    "sender_account": source.account_number,
+                    "timestamp": now().isoformat(),
+                    "settlement_type": "INTRABANK"
+                }
+            )
+        )
 
         return Transaction.objects.create(
             source_account=source,

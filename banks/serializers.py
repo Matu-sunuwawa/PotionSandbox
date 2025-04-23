@@ -1,10 +1,12 @@
 from rest_framework import serializers
 from django.conf import settings
 from django.db import transaction
+from django.utils.timezone import now
 
 from .models import *
 from accounts.models import *
 from transactions.models import *
+from .webhooks import WebhookService
 # from .constants import GENDER_CHOICE
 
 from datetime import datetime, timedelta
@@ -62,7 +64,6 @@ class Bank2BankTransactionSerializer(serializers.ModelSerializer):
         amount = data['amount']
         sender_bank = user_account.branch.commercial_bank
 
-        # Check sender bank has sufficient reserves
         if sender_bank.reserve_balance < amount:
             raise serializers.ValidationError(
                 {"amount": "Insufficient reserves in sender bank"}
@@ -135,6 +136,22 @@ class Bank2BankTransactionSerializer(serializers.ModelSerializer):
         for model in models_to_save:
             model.save()
         # If anything fails here, BOTH changes are canceled.
+            
+        transaction.on_commit(
+            lambda: WebhookService.trigger_webhook(
+                receiver_account,
+                {
+                    "event": "transaction.received",
+                    "amount": str(amount),
+                    "currency": receiver_account.currency,
+                    "sender_account": sender_account.account_number,
+                    "sender_bank": sender_bank.name,
+                    "reference": ref_no,
+                    "timestamp": now().isoformat(),
+                    "settlement_type": "INTERBANK"
+                }
+            )
+        )
 
         return transaction_record
     

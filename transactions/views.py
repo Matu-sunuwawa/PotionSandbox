@@ -21,3 +21,17 @@ from transactions.constants import *
 class User2UserViewset(GenericViewSet, CreateModelMixin):
     serializer_class = IntraBankTransferSerializer
     permission_classes = [IsAuthenticated]
+
+
+class WebhookTestViewset(GenericViewSet, CreateModelMixin):
+    """Sandbox webhook receiver for testing"""
+    def create(self, request, *args, **kwargs):
+        print("\n=== WEBHOOK RECEIVED ===")
+        print("Headers:", request.headers)
+        print("Body:", request.data)
+        print("=======================\n")
+        
+        return Response(
+            {"status": "received", "data": request.data},
+            status=status.HTTP_200_OK
+        )

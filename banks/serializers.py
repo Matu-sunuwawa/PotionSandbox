@@ -30,7 +30,7 @@ phone_validator = RegexValidator(
     message="Phone number must be 8-12 digits (e.g., +251945678903).",
 )
 
-
+    
 class Bank2BankTransactionSerializer(serializers.ModelSerializer):
     receiver_bank = serializers.CharField(write_only=True)
     destination_account = serializers.CharField(write_only=True)
@@ -54,10 +54,19 @@ class Bank2BankTransactionSerializer(serializers.ModelSerializer):
         return obj.nbe_settlement_ref
 
     def validate(self, data):
-        """Validate receiver account exists in the specified bank"""
+        """Validate receiver account and bank reserves"""
         user_account = self.context['request'].user.account.first() # Who is sending now?
         if not user_account:
             raise serializers.ValidationError("Sender account not found")
+
+        amount = data['amount']
+        sender_bank = user_account.branch.commercial_bank
+
+        # Check sender bank has sufficient reserves
+        if sender_bank.reserve_balance < amount:
+            raise serializers.ValidationError(
+                {"amount": "Insufficient reserves in sender bank"}
+            )
 
         try:
             receiver_bank = CommercialBank.objects.get(name=data['receiver_bank'])
@@ -68,20 +77,26 @@ class Bank2BankTransactionSerializer(serializers.ModelSerializer):
         except (CommercialBank.DoesNotExist, BankAccount.DoesNotExist):
             raise serializers.ValidationError("Receiver account not found in specified bank")
 
-        data['sender_account'] = user_account
-        data['receiver_account'] = receiver_account
+        data.update({
+            'sender_account': user_account,
+            'receiver_account': receiver_account,
+            'sender_bank': sender_bank,
+            'receiver_bank': receiver_bank
+        })
         return data
 
     @transaction.atomic # Ensure atomicity [Mat Man Sunuwawa] ... If any error occurs, all changes are rolled back (like an "undo" button).
     def create(self, validated_data):
         sender_account = validated_data['sender_account']
         receiver_account = validated_data['receiver_account']
+        sender_bank = validated_data['sender_bank']
+        receiver_bank = validated_data['receiver_bank']
         amount = validated_data['amount']
-        receiver_bank_name = validated_data.pop('receiver_bank')
 
         timestamp = datetime.now().strftime("%H%M%S")
         ref_no = f"SETT-{timestamp}"
 
+        # 1. Create records
         transaction_record = Transaction.objects.create(
             source_account=sender_account,
             destination_account=receiver_account,
@@ -91,17 +106,34 @@ class Bank2BankTransactionSerializer(serializers.ModelSerializer):
         )
 
         settlement = InterbankSettlement.objects.create(
-            sender_bank=sender_account.branch.commercial_bank,
-            receiver_bank=receiver_account.branch.commercial_bank,
+            sender_bank=sender_bank,
+            receiver_bank=receiver_bank,
             amount=amount,
             status="COMPLETED",
             reference_number=ref_no
         )
 
+        # 1. Update customer balances
         sender_account.balance -= amount
         receiver_account.balance += amount
-        sender_account.save()
-        receiver_account.save()
+
+        # 2. Update bank reserves
+        sender_bank.reserve_balance -= amount
+        receiver_bank.reserve_balance += amount
+
+        # 3. Update central bank total reserves
+        central_bank = sender_bank.nbe
+        central_bank.total_reserves -= amount
+        central_bank.total_reserves += amount
+
+        # Single save point for atomicity
+        models_to_save = [
+            sender_account, receiver_account,
+            sender_bank, receiver_bank,
+            central_bank
+        ]
+        for model in models_to_save:
+            model.save()
         # If anything fails here, BOTH changes are canceled.
 
         return transaction_record

@@ -29,8 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECRET_KEY = env("SECRET_KEY", get_random_secret_key())
 DEBUG = env("DEBUG", False) == "True"
 
-ALLOWED_HOSTS = env("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
-
+ALLOWED_HOSTS = env("ALLOWED_HOSTS", "localhost,127.0.0.1", ".vercel.app", ".now.sh").split(",")
 
 # Application definition
 
@@ -150,7 +149,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+# STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+STATICFILES_DIRS = [BASE_DIR/'static',]
+STATIC_ROOT = BASE_DIR/'staticfiles'
 
 ACCOUNT_NUMBER_START_FROM = 1000
 MINIMUM_DEPOSIT_AMOUNT = 10

@@ -12,8 +12,8 @@ click-plugins==1.1.1
 click-repl==0.3.0
 cron-descriptor==1.4.5
 cryptography==44.0.2
-# Django==5.1.8
-Django==5.0
+dj-database-url==2.3.0
+Django==5.1.8
 django-celery-beat==2.7.0
 django-cors-headers==4.7.0
 django-storages==1.14.6
@@ -28,8 +28,7 @@ jsonschema==4.23.0
 jsonschema-specifications==2024.10.1
 kombu==5.5.2
 prompt_toolkit==3.0.51
-# psycopg==3.2.6
-psycopg2-binary==2.9.9
+psycopg==3.2.6
 pycparser==2.22
 PyJWT==2.9.0
 python-crontab==3.2.0
@@ -42,6 +41,7 @@ requests==2.32.3
 rpds-py==0.24.0
 six==1.17.0
 sqlparse==0.5.3
+typing_extensions==4.13.2
 tzdata==2025.2
 uritemplate==4.1.1
 urllib3==2.4.0

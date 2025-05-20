@@ -18,4 +18,14 @@ python3.12 manage.py collectstatic --noinput --clear
 
 python3.12 manage.py migrate --noinput
 
+# Test database connection
+python3.12 -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+django.setup()
+from django.db import connection
+connection.ensure_connection()
+print('Database connection successful!')
+"
+
 echo "BUILD END"

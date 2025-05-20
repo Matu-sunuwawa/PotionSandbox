@@ -6,7 +6,7 @@
         "use": "@vercel/static-build",
         "config": {
           "distDir": "staticfiles_build",
-          "runtime": "python3.9"
+          "runtime": "python3.12"
         }
       },
       {
@@ -14,7 +14,8 @@
         "use": "@vercel/python",
         "config": {
           "maxLambdaSize": "15mb",
-          "runtime": "python3.9"
+          "runtime": "python3.12",
+          "installCommand": "python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt"
         }
       }
     ],

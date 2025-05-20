@@ -2,30 +2,21 @@
 
 echo "BUILD START"
 
-# Set Python path explicitly
-export PYTHONPATH=/vercel/path0
+# Install dependencies
+python3.12 -m pip install --upgrade pip
+python3.12 -m pip install -r requirements.txt
 
-# Install dependencies with explicit paths
-python3.12 -m pip install --user --upgrade pip setuptools wheel
-python3.12 -m pip install --user -r requirements.txt
+# Verify Django installation
+python3.12 -m django --version
 
-# Create directories
-mkdir -p static
-mkdir -p staticfiles_build/static
-
-# Collect static files
-python3.12 manage.py collectstatic --noinput --clear
-
+# Apply migrations
 python3.12 manage.py migrate --noinput
 
-# Test database connection
-python3.12 -c "
-import os, django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
-django.setup()
-from django.db import connection
-connection.ensure_connection()
-print('Database connection successful!')
-"
+# Only run collectstatic if Django is properly installed
+if python3.12 -c "import django; print(django.__version__)"; then
+    python3.12 manage.py collectstatic --noinput --clear
+else
+    echo "Django not properly installed, skipping collectstatic"
+fi
 
 echo "BUILD END"

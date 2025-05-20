@@ -12,7 +12,8 @@ click-plugins==1.1.1
 click-repl==0.3.0
 cron-descriptor==1.4.5
 cryptography==44.0.2
-Django==5.1.8
+# Django==5.1.8
+Django==4.2
 django-celery-beat==2.7.0
 django-cors-headers==4.7.0
 django-storages==1.14.6

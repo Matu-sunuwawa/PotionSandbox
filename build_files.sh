@@ -2,18 +2,20 @@
 
 echo "BUILD START"
 
-# Ensure Python 3.12 is available
-python3.12 --version || echo "Python 3.12 not found"
+# Set Python path explicitly
+export PYTHONPATH=/vercel/path0
 
-# Upgrade pip and install dependencies
-python3.12 -m pip install --upgrade pip setuptools wheel
-python3.12 -m pip install -r requirements.txt
+# Install dependencies with explicit paths
+python3.12 -m pip install --user --upgrade pip setuptools wheel
+python3.12 -m pip install --user -r requirements.txt
 
-# Create required directories
+# Create directories
 mkdir -p static
 mkdir -p staticfiles_build/static
 
 # Collect static files
 python3.12 manage.py collectstatic --noinput --clear
+
+python3.12 manage.py migrate --noinput
 
 echo "BUILD END"

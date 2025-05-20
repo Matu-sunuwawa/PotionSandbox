@@ -1,5 +1,6 @@
 
 import os
+import dj_database_url
 from datetime import timedelta
 from pathlib import Path
 
@@ -100,17 +101,25 @@ WSGI_APPLICATION = "core.wsgi.application"
 #     }
 # }
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": env("PG_DB_NAME"),
+#         "USER": env("PG_USER"),
+#         "PASSWORD": env("PG_PASSWORD"),
+#         "HOST": env("PG_HOST"),
+#         "PORT": env("PG_PORT", "5432"),
+#         "CONN_MAX_AGE": None,
+#         "OPTIONS": {"sslmode": env("PG_SSL_MODE")},
+#     }
+# }
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("PG_DB_NAME"),
-        "USER": env("PG_USER"),
-        "PASSWORD": env("PG_PASSWORD"),
-        "HOST": env("PG_HOST"),
-        "PORT": env("PG_PORT", "5432"),
-        "CONN_MAX_AGE": None,
-        "OPTIONS": {"sslmode": env("PG_SSL_MODE")},
-    }
+    'default': dj_database_url.config(
+        default='postgresql://'+os.getenv('PG_USER','')+':'+os.getenv('PG_PASSWORD','')+'@'+os.getenv('PG_HOST','')+':'+os.getenv('PG_PORT','5432')+'/'+os.getenv('PG_DB_NAME',''),
+        conn_max_age=600,
+        ssl_require=os.getenv('PG_SSL_MODE') == 'require'
+    )
 }
 
 

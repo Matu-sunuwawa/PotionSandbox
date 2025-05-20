@@ -21,16 +21,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-o7v=^r2(a@4p0fk5+ae4ht(v!so08!2wb#&_0t3nd&@c$d=nrl"
+# SECRET_KEY = "django-insecure-o7v=^r2(a@4p0fk5+ae4ht(v!so08!2wb#&_0t3nd&@c$d=nrl"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 env = os.getenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECRET_KEY = env("SECRET_KEY", get_random_secret_key())
-DEBUG = env("DEBUG", False) == "True"
+# DEBUG = env("DEBUG", False) == "True"
 
-ALLOWED_HOSTS = env("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", ".vercel.app", ".now.sh"])
+# ALLOWED_HOSTS = env("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", ".vercel.app", ".now.sh"])
+
+SECRET_KEY = env('SECRET_KEY')
+DEBUG = env('DEBUG', 'False') == 'True'
+ALLOWED_HOSTS = env('ALLOWED_HOSTS', '').split(',')
 
 # Application definition
 
@@ -116,12 +120,11 @@ WSGI_APPLICATION = "core.wsgi.application"
 
 DATABASES = {
     'default': dj_database_url.config(
-        default='postgresql://'+os.getenv('PG_USER','')+':'+os.getenv('PG_PASSWORD','')+'@'+os.getenv('PG_HOST','')+':'+os.getenv('PG_PORT','5432')+'/'+os.getenv('PG_DB_NAME',''),
+        default=os.getenv('POSTGRES_URL_NON_POOLING'),  # Using non-pooling connection
         conn_max_age=600,
-        ssl_require=os.getenv('PG_SSL_MODE') == 'require'
+        ssl_require=True
     )
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

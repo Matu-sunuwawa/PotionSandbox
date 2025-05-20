@@ -28,7 +28,8 @@ jsonschema==4.23.0
 jsonschema-specifications==2024.10.1
 kombu==5.5.2
 prompt_toolkit==3.0.51
-psycopg==3.2.6
+# psycopg==3.2.6
+psycopg2-binary==2.9.3
 pycparser==2.22
 PyJWT==2.9.0
 python-crontab==3.2.0

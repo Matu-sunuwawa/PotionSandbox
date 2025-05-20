@@ -2,22 +2,27 @@
     "version": 2,
     "builds": [
       {
-        "src": "core/wsgi.py",
-        "use": "@vercel/python",
-        "config": { "maxLambdaSize": "15mb", "runtime": "python3.11.9" }
-      },
-      {
         "src": "build_files.sh",
         "use": "@vercel/static-build",
         "config": {
-          "distDir": "staticfiles"
+          "distDir": "staticfiles_build",
+          "runtime": "python3.12"
+        }
+      },
+      {
+        "src": "core/wsgi.py",
+        "use": "@vercel/python",
+        "config": {
+          "maxLambdaSize": "15mb",
+          "runtime": "python3.12",
+          "installCommand": "python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt"
         }
       }
     ],
     "routes": [
       {
         "src": "/static/(.*)",
-        "dest": "/static/$1"
+        "dest": "staticfiles_build/static/$1"
       },
       {
         "src": "/(.*)",

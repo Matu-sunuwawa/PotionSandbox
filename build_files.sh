@@ -1,17 +1,18 @@
+#!/bin/bash
 
-# create a virtual environment named 'venv' if it doesn't already exist
-python3.11.9 -m venv venv
+echo "BUILD START"
 
-# activate the virtual environment
-source venv/bin/activate
+# Ensure latest pip/setuptools
+python -m pip install --upgrade pip setuptools wheel
 
-# install all deps in the venv
+# Install dependencies
 pip install -r requirements.txt
 
-# collect static files using the Python interpreter from venv
-python manage.py collectstatic --noinput
+# Create directories
+mkdir -p static
+mkdir -p staticfiles_build/static
+
+# Collect static files
+python manage.py collectstatic --noinput --clear
 
 echo "BUILD END"
-
-# [optional] Start the application here 
-# python manage.py runserver

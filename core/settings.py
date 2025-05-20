@@ -72,6 +72,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = "core.urls"
@@ -119,11 +120,17 @@ WSGI_APPLICATION = "core.wsgi.application"
 # }
 
 DATABASES = {
-    'default': dj_database_url.config(
-        default=os.getenv('POSTGRES_URL_NON_POOLING'),  # Using non-pooling connection
-        conn_max_age=600,
-        ssl_require=True
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DATABASE', 'postgres'),
+        'USER': os.getenv('POSTGRES_USER', 'postgres.sxjqzpdhxhplbpznxryl'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', '9Oi9Ae82gnRgYIf3'),
+        'HOST': os.getenv('POSTGRES_HOST', 'aws-0-us-east-1.pooler.supabase.com'),
+        'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+    }
 }
 
 # Password validation

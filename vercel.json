@@ -2,33 +2,27 @@
   "version": 2,
   "builds": [
     {
-      "src": "core/wsgi.py",
-      "use": "@vercel/python",
+      "src": "build_files.sh",
+      "use": "@vercel/static-build",
       "config": {
-        "runtime": "python3.12",
-        "installCommand": "bash build_files.sh",
-        "maxLambdaSize": "15mb"
+        "distDir": "staticfiles_build",
+        "runtime": "python3.12"
       }
     },
     {
-      "src": "staticfiles/",
-      "use": "@vercel/static"
+      "src": "core/wsgi.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "15mb",
+        "runtime": "python3.12",
+        "installCommand": "python -m pip install --upgrade pip setuptools wheel && pip install -r requirements.txt"
+      }
     }
   ],
   "routes": [
     {
       "src": "/static/(.*)",
-      "dest": "/static/$1",
-      "headers": {
-        "Cache-Control": "public, max-age=31536000, immutable"
-      }
-    },
-    {
-      "src": "/admin/static/(.*)",
-      "dest": "/static/admin/$1",
-      "headers": {
-        "Cache-Control": "public, max-age=31536000, immutable"
-      }
+      "dest": "staticfiles_build/static/$1"
     },
     {
       "src": "/(.*)",

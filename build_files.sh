@@ -8,10 +8,10 @@ pip install -r requirements.txt
 # 2. Apply migrations
 python manage.py migrate --noinput
 
-# 3. Create static directory if it doesn't exist
-mkdir -p static
+# 3. Create static directories
+mkdir -p staticfiles/{admin,css,js}
 
-# 4. Collect static files
+# 4. Collect static files (including admin)
 python manage.py collectstatic --noinput --clear
 
 echo "=== BUILD COMPLETE ==="

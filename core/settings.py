@@ -250,5 +250,4 @@ LOGGING = {
 }
 
 
-if 'VERCEL' in os.environ:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'

@@ -177,7 +177,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # For production
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles_build', 'static') # For production
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')] # For develoment
 
 # Important for Vercel deployment
 WHITENOISE_ROOT = os.path.join(STATIC_ROOT, 'root') 

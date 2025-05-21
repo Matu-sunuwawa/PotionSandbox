@@ -120,15 +120,25 @@ WSGI_APPLICATION = "core.wsgi.application"
 # }
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("POSTGRES_DATABASE"),
-        "USER": env("POSTGRES_USER"),
-        "PASSWORD": env("POSTGRES_PASSWORD"),
-        "HOST": env("POSTGRES_HOST"),
-        "PORT": env("POSTGRES_PORT"),
-        "CONN_MAX_AGE": None,
-        "OPTIONS": {"sslmode": env("PG_SSL_MODE")},
+    'default': dj_database_url.config(
+        default=os.getenv('POSTGRES_URL_NON_POOLING'),
+        conn_max_age=600,
+        ssl_require=True
+    )
+}
+
+# Alternative explicit configuration if needed:
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres.sxjqzpdhxhplbpznxryl',
+        'PASSWORD': '9Oi9Ae82gnRgYIf3',
+        'HOST': 'aws-0-us-east-1.pooler.supabase.com',
+        'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
     }
 }
 

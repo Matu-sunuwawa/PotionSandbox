@@ -177,10 +177,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # For production
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]  # For development
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # For production
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Important for Vercel deployment
+WHITENOISE_ROOT = os.path.join(STATIC_ROOT, 'root') 
+WHITENOISE_MANIFEST_STRICT = False
+
 
 ACCOUNT_NUMBER_START_FROM = 1000
 MINIMUM_DEPOSIT_AMOUNT = 10
@@ -245,3 +247,7 @@ LOGGING = {
         'level': 'WARNING',
     },
 }
+
+
+if 'VERCEL' in os.environ:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'

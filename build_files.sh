@@ -1,22 +1,17 @@
 #!/bin/bash
 
-echo "BUILD START"
+echo "=== BUILD START ==="
 
-# Install dependencies
-python3.12 -m pip install --upgrade pip
-python3.12 -m pip install -r requirements.txt
+# 1. Install dependencies
+pip install -r requirements.txt
 
-# Verify Django installation
-python3.12 -m django --version
+# 2. Apply migrations
+python manage.py migrate --noinput
 
-# Apply migrations
-python3.12 manage.py migrate --noinput
+# 3. Create static directory if it doesn't exist
+mkdir -p static
 
-# Only run collectstatic if Django is properly installed
-if python3.12 -c "import django; print(django.__version__)"; then
-    python3.12 manage.py collectstatic --noinput --clear
-else
-    echo "Django not properly installed, skipping collectstatic"
-fi
+# 4. Collect static files
+python manage.py collectstatic --noinput --clear
 
-echo "BUILD END"
+echo "=== BUILD COMPLETE ==="

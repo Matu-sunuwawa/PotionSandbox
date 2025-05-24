@@ -7,12 +7,6 @@ from .views import *
 router = DefaultRouter()
 
 router.register("register", RegisterViewset, basename="register")
-router.register(
-    "verifications/confirm", VerificationCodeViewset, basename="users-confirm-code"
-)
-router.register(
-    "verifications/resend", VerificationCodeResendViewset, basename="users-resend-code"
-)
 router.register("login", LoginViewset, basename="login")
 
 

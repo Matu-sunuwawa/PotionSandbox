@@ -5,10 +5,11 @@ from banks.models import *
 from .constants import *
 
 class Transaction(models.Model):
-    source_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name='sent_transactions')
-    destination_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name='received_transactions')
+    source_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name='sent_transactions',null=True,blank=True,)
+    destination_account = models.ForeignKey(BankAccount, on_delete=models.CASCADE, related_name='received_transactions',null=True,blank=True,)
     amount = models.DecimalField(max_digits=15, decimal_places=2)
     transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    remarks = models.TextField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     nbe_settlement_ref = models.CharField(max_length=50, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)

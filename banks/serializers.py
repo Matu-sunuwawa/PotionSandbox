@@ -1,3 +1,6 @@
+
+from datetime import datetime
+import requests
 from rest_framework import serializers
 from django.conf import settings
 from django.db import transaction
@@ -9,22 +12,28 @@ from transactions.models import *
 from .webhooks import WebhookService
 # from .constants import GENDER_CHOICE
 
-from datetime import datetime, timedelta
-from uuid import UUID
 
-from django.contrib.auth import authenticate, password_validation
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.shortcuts import get_object_or_404
-from rest_framework import exceptions, serializers, validators
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import serializers
 
 from uuid import uuid4
 from core.utils import hash256, generate_secure_six_digits
 
 from django.db import transaction
+
+from rest_framework import serializers
+from accounts.models import User, BankAccount
+from transactions.models import Transaction
+
+import logging
+
+# Configure the logger
+logging.basicConfig(level=logging.ERROR)
+
+# Get a logger instance
+logger = logging.getLogger(__name__)
+
 
 
 phone_validator = RegexValidator(
@@ -35,7 +44,8 @@ phone_validator = RegexValidator(
     
 class Bank2BankTransactionSerializer(serializers.ModelSerializer):
     receiver_bank = serializers.CharField(write_only=True)
-    destination_account = serializers.CharField(write_only=True)
+    destination_phone_number = serializers.CharField(write_only=True)
+    remarks = serializers.CharField(write_only=True, required=False)
     
     sender_bank = serializers.SerializerMethodField(read_only=True)
     settlement_ref = serializers.SerializerMethodField(read_only=True)
@@ -43,61 +53,63 @@ class Bank2BankTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
         fields = [
-            "sender_bank", "receiver_bank", "destination_account",
-            "amount", "transaction_type", "settlement_ref"
+            "sender_bank", "receiver_bank", "destination_phone_number",
+            "remarks", "amount", "transaction_type", "settlement_ref"
         ]
 
-    # obj is the actual Transaction model instance being serialized.
     def get_sender_bank(self, obj):
-        return obj.source_account.branch.commercial_bank.name # Who sent this one?
+        return obj.source_account.branch.commercial_bank.name
 
-    # SerializerMethodField, which computes custom values for serialization.
     def get_settlement_ref(self, obj):
         return obj.nbe_settlement_ref
 
     def validate(self, data):
-        """Validate receiver account and bank reserves"""
-        user_account = self.context['request'].user.account.first() # Who is sending now?
+        user = self.context['request'].user
+        amount = data['amount']
+
+        user_account = user.account.first()
         if not user_account:
             raise serializers.ValidationError("Sender account not found")
 
-        amount = data['amount']
         sender_bank = user_account.branch.commercial_bank
-
         if sender_bank.reserve_balance < amount:
             raise serializers.ValidationError(
                 {"amount": "Insufficient reserves in sender bank"}
             )
+        sender_account = user_account
 
         try:
-            receiver_bank = CommercialBank.objects.get(name=data['receiver_bank'])
+            mela_wallet_bank = CommercialBank.objects.get(name="Mela Wallet")
+            
             receiver_account = BankAccount.objects.get(
-                account_number=data['destination_account'],
-                branch__commercial_bank=receiver_bank
+                owner__phone_number=data['destination_phone_number'],
+                branch__commercial_bank=mela_wallet_bank
             )
-        except (CommercialBank.DoesNotExist, BankAccount.DoesNotExist):
-            raise serializers.ValidationError("Receiver account not found in specified bank")
+        except CommercialBank.DoesNotExist:
+            raise serializers.ValidationError({"receiver_bank": "Mela Wallet bank not found"})
+        except BankAccount.DoesNotExist:
+            raise serializers.ValidationError({"destination_phone_number": "Receiver account not found in Mela Wallet"})
 
         data.update({
-            'sender_account': user_account,
-            'receiver_account': receiver_account,
+            'sender_account': sender_account,
             'sender_bank': sender_bank,
-            'receiver_bank': receiver_bank
+            'receiver_account': receiver_account,
+            'receiver_bank': mela_wallet_bank
         })
         return data
 
-    @transaction.atomic # Ensure atomicity [Mat Man Sunuwawa] ... If any error occurs, all changes are rolled back (like an "undo" button).
+    @transaction.atomic
     def create(self, validated_data):
         sender_account = validated_data['sender_account']
         receiver_account = validated_data['receiver_account']
         sender_bank = validated_data['sender_bank']
         receiver_bank = validated_data['receiver_bank']
         amount = validated_data['amount']
+        remarks = validated_data.get('remarks', '')
 
         timestamp = datetime.now().strftime("%H%M%S")
         ref_no = f"SETT-{timestamp}"
 
-        # 1. Create records
         transaction_record = Transaction.objects.create(
             source_account=sender_account,
             destination_account=receiver_account,
@@ -106,7 +118,7 @@ class Bank2BankTransactionSerializer(serializers.ModelSerializer):
             nbe_settlement_ref=ref_no
         )
 
-        settlement = InterbankSettlement.objects.create(
+        InterbankSettlement.objects.create(
             sender_bank=sender_bank,
             receiver_bank=receiver_bank,
             amount=amount,
@@ -114,46 +126,98 @@ class Bank2BankTransactionSerializer(serializers.ModelSerializer):
             reference_number=ref_no
         )
 
-        # 1. Update customer balances
         sender_account.balance -= amount
         receiver_account.balance += amount
 
-        # 2. Update bank reserves
         sender_bank.reserve_balance -= amount
         receiver_bank.reserve_balance += amount
 
-        # 3. Update central bank total reserves
-        central_bank = sender_bank.nbe
-        central_bank.total_reserves -= amount
-        central_bank.total_reserves += amount
-
-        # Single save point for atomicity
-        models_to_save = [
-            sender_account, receiver_account,
-            sender_bank, receiver_bank,
-            central_bank
-        ]
+        models_to_save = [sender_account, receiver_account, sender_bank, receiver_bank]
         for model in models_to_save:
             model.save()
-        # If anything fails here, BOTH changes are canceled.
-            
-        transaction.on_commit(
-            lambda: WebhookService.trigger_webhook(
-                receiver_account,
-                {
-                    "event": "transaction.received",
-                    "amount": str(amount),
-                    "currency": receiver_account.currency,
-                    "sender_account": sender_account.account_number,
-                    "sender_bank": sender_bank.name,
-                    "reference": ref_no,
-                    "timestamp": now().isoformat(),
-                    "settlement_type": "INTERBANK"
-                }
-            )
+
+        self.notify_external_system(
+            sender_bank,
+            receiver_account.owner.phone_number,
+            amount,
+            remarks
         )
 
         return transaction_record
+
+    def notify_external_system(self, sender_bank, phone_number, amount, remarks):
+        """Send notification to external system's webhook"""
+        try:
+            amount_float = float(amount)
+            
+            payload = {
+                'phone_number': str(phone_number),
+                'amount': amount_float,
+                'remarks': str(remarks) if remarks else ""
+            }
+            
+            access_id = getattr(sender_bank.access_key, 'access_id', 'mnbvcxz')
+            access_secret = getattr(sender_bank.access_key, 'get_raw_secret', lambda: 'mnbvcxz')()
+            
+            response = requests.post(
+                "https://potion.dev.gumisofts.com/wallets/receive/external/",
+                headers={
+                    'X-Access-Id': access_id,
+                    'X-Access-Secret': access_secret,
+                    'Content-Type': 'application/json',
+                    'X-CSRFTOKEN': 'TgYWft1qUwCb3Oy6WYalyVgX9aPCr8Oj8LiiGyIjOkKYV5XsDPWwqEFuXxFGOnt7'
+                },
+                json=payload,
+                timeout=5
+            )
+            response.raise_for_status()
+            logger.info(f"Notification sent successfully to {phone_number}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"HTTP request failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"External notification failed: {str(e)}")
+        
+
+
+class ReceiveMoneyExternalSerializer(serializers.Serializer):
+    receiver_bank = serializers.CharField(write_only=True)
+    destination_account = serializers.CharField(write_only=True)
+    amount = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=Decimal('10.00'))
+    remarks = serializers.CharField(required=False)
+    transaction_type = serializers.CharField(default="INTERBANK", read_only=True)
+    
+    def validate(self, attrs):
+        try:
+            receiver_bank = CommercialBank.objects.get(name=attrs['receiver_bank'])
+            receiver_account = BankAccount.objects.get(
+                account_number=attrs['destination_account'],
+                branch__commercial_bank=receiver_bank
+            )
+        except CommercialBank.DoesNotExist:
+            raise serializers.ValidationError({"receiver_bank": "Bank not found"})
+        except BankAccount.DoesNotExist:
+            raise serializers.ValidationError({"destination_account": "Account not found in specified bank"})
+            
+        attrs['receiver_account'] = receiver_account
+        return attrs
+
+    def create(self, validated_data):
+        receiver_account = validated_data['receiver_account']
+        amount = validated_data['amount']
+        
+        transaction = Transaction.objects.create(
+            destination_account=receiver_account,
+            amount=amount,
+            transaction_type="INTERBANK",
+            remarks=validated_data.get('remarks', '')
+        )
+        
+        receiver_account.balance += amount
+        receiver_account.save()
+        
+        return transaction
+
+
     
 # I will Teach Myself [Matu Sunuwawa]
     # Complete Transaction Flow

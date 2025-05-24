@@ -42,12 +42,10 @@ class UserGeneralInfoSerializer(serializers.ModelSerializer):
             "date_joined",
         ]
 
-
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    password1 = serializers.CharField(write_only=True)
-    password2 = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True)
     account_type = serializers.CharField(write_only=True)
-    branch = serializers.CharField(write_only=True)
+    branch_code = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
@@ -55,113 +53,56 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'phone_number',
-            'password1',
-            'password2',
+            'password',
             'account_type',
-            'branch'
+            'branch_code'
         ]
         extra_kwargs = {
-            'password1': {'write_only': True},
-            'password2': {'write_only': True},
+            'password': {'write_only': True},
         }
-
-    def validate(self, data):
-        if data['password1'] != data['password2']:
-            raise serializers.ValidationError("Passwords don't match")
-        return data
 
     @transaction.atomic
     def create(self, validated_data):
-        account_type_name = validated_data.pop('account_type') # Get the string name
-        branch_code = validated_data.pop('branch')
-        password = validated_data.pop('password1')
-        validated_data.pop('password2', None)  # Remove password2 as we don't need it anymore
-
-        branch_instance = Branch.objects.get(branch_code=branch_code)
-
-        user = User.objects.create(**validated_data)
+        password = validated_data.pop('password')
+        account_type = validated_data.pop('account_type')
+        branch_code = validated_data.pop('branch_code')
+        
+        user = User.objects.create(
+            **validated_data,
+            is_phone_verified=True,
+            is_email_verified=True,
+            is_active=True
+        )
         user.set_password(password)
         user.save()
 
-        timestamp = datetime.now().strftime("%H%M%S")
-        account_no = f"{settings.ACCOUNT_NUMBER_START_FROM}{timestamp}"
-
+        # Get branch
+        branch = Branch.objects.get(branch_code=branch_code)
+        
+        account_no = f"{settings.ACCOUNT_NUMBER_START_FROM}{datetime.now().strftime('%H%M%S')}"
         BankAccount.objects.create(
             owner=user,
-            branch=branch_instance,
-            account_type=account_type_name, # Use the instance here
+            branch=branch,
+            account_type=account_type,
             account_number=account_no
         )
-
-        user_registered.send(User, **{"instance": user, "method": "PHONE"})
 
         return user
 
     def to_representation(self, instance):
-        # Return only basic User info in response
+        refresh = RefreshToken.for_user(instance)
         return {
-            'id': instance.id,
-            'first_name': instance.first_name,
-            'last_name': instance.last_name,
-            'phone_number': instance.phone_number
+            'user': {
+                'id': instance.id,
+                'first_name': instance.first_name,
+                'last_name': instance.last_name,
+                'phone_number': instance.phone_number
+            },
+            'tokens': {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }
         }
-
-
-class CreateVerificationCodeSerializer(serializers.Serializer):
-    code = serializers.CharField(write_only=True)
-    user_id = serializers.UUIDField(write_only=True)
-    code_type = serializers.ChoiceField([(1, "PHONE"), (2, "EMAIL")], write_only=True)
-
-    detail = serializers.SerializerMethodField()
-    user = UserGeneralInfoSerializer(read_only=True)
-
-    def get_detail(self, instance):
-        return "Success"
-
-    def create(self, validated_data):
-        code = validated_data.get("code")
-        code_type = validated_data.get("code_type")
-        user_id = validated_data.get("user_id")
-
-        queryset = VerificationCode.objects.filter(
-            user__id=user_id, code_type=code_type, is_used=False
-        )
-
-        instance = get_object_or_404(queryset, token=hash256(code))
-
-        if code_type == 1:
-            instance.user.is_phone_verified = True
-        else:
-            instance.user.is_email_verified = True
-        instance.is_used = True
-        instance.user.save()
-        instance.save()
-
-        user_phone_verified.send(User, **{"instance": instance.user})
-
-        return instance
-    
-
-class ResendVerificationSerializer(serializers.Serializer):
-    user_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(is_active=True)
-    )
-    code_type = serializers.ChoiceField(choices=[(1, "PHONE"), (2, "EMAIL")])
-    detail = serializers.CharField(read_only=True)
-
-    def create(self, validated_data):
-        user_id = validated_data.pop("user_id")
-        code_type = validated_data.pop("code_type")
-        token = generate_secure_six_digits()
-        VerificationCode.objects.create(
-            expires_at=datetime.now() + timedelta(minutes=5),
-            token=token,
-            code_type=code_type,
-            user=user_id,
-        )
-        TemporaryCode.objects.create(code=token, phone_number=user_id.phone_number)
-
-        return {"user_id": user_id, "code_type": code_type, "detail": "success"}
 
 
 class UserLoginSerializer(serializers.Serializer):

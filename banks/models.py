@@ -1,4 +1,22 @@
+
+from uuid import uuid4
 from django.db import models
+from django.contrib.auth.hashers import check_password, make_password
+
+
+class AccessKey(models.Model):
+    access_id = models.CharField(max_length=255, unique=True)
+    access_secret = models.CharField(max_length=255, unique=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.access_id:
+            self.access_id = str(uuid4().hex)
+
+        self.access_secret = make_password(self.access_secret)
+        super().save(*args, **kwargs)
 
 
 class NBECentralBank(models.Model):
@@ -16,6 +34,7 @@ class CommercialBank(models.Model):
     established_date = models.DateField()
     reserve_balance = models.DecimalField(max_digits=20, decimal_places=2, default=0)
     nbe = models.ForeignKey(NBECentralBank, on_delete=models.CASCADE, related_name='commercial_banks')
+    access_key = models.OneToOneField(AccessKey, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.name

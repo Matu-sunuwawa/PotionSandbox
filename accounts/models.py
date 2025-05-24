@@ -76,28 +76,6 @@ class User(AbstractUser):
 
         return super().save(**kwrags)
 
-
-class VerificationCode(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    token = models.CharField(max_length=255)
-    expires_at = models.DateTimeField()
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="codes")
-    created_at = models.DateTimeField(auto_now_add=True)
-    code_type = models.IntegerField(choices=[(1, "PHONE"), (2, "EMAIL")], default=1)
-    is_used = models.BooleanField(default=False)
-
-    def save(self, *args, **kwargs):
-
-        self.token = hash256(str(self.token))
-
-        return super().save(*args, **kwargs)
-
-
-class TemporaryCode(models.Model):
-    phone_number = models.CharField(max_length=255)
-    code = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
-
 class BankAccount(models.Model):
     account_number = models.PositiveIntegerField(unique=True)
     branch = models.ForeignKey(Branch, on_delete=models.CASCADE, related_name='accounts')

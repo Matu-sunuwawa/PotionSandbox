@@ -11,12 +11,9 @@ from rest_framework.mixins import (
     RetrieveModelMixin,
     UpdateModelMixin,
 )
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.response import Response
-from rest_framework.views import APIView
+
 from rest_framework.viewsets import GenericViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from .models import *
 from .serializers import *
@@ -32,9 +29,3 @@ class RegisterViewset(GenericViewSet, CreateModelMixin):
     serializer_class = UserRegistrationSerializer
     queryset = User.objects.all()
     permission_classes = []
-
-class VerificationCodeViewset(CreateModelMixin, GenericViewSet):
-    serializer_class = CreateVerificationCodeSerializer
-
-class VerificationCodeResendViewset(CreateModelMixin, GenericViewSet):
-    serializer_class = ResendVerificationSerializer

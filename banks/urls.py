@@ -6,7 +6,7 @@ from .views import *
 
 router = DefaultRouter()
 
-router.register("bank2mela/transfer", Bank2BankViewset, basename="bank-to-bank")
+router.register("bank2wallet/transfer", Bank2WalletViewset, basename="bank-to-bank")
 router.register(r"receive/external", ReceiveMoneyExternalViewset, basename="receive-external")
 
 # Register Viewsets here

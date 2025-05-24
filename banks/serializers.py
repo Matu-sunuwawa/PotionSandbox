@@ -42,7 +42,7 @@ phone_validator = RegexValidator(
 )
 
     
-class Bank2BankTransactionSerializer(serializers.ModelSerializer):
+class Bank2WalletTransactionSerializer(serializers.ModelSerializer):
     receiver_bank = serializers.CharField(write_only=True)
     destination_phone_number = serializers.CharField(write_only=True)
     remarks = serializers.CharField(write_only=True, required=False)

@@ -19,8 +19,8 @@ from banks.permissions import ExternalSysPermission
 from banks.serializers import ReceiveMoneyExternalSerializer
 
 
-class Bank2BankViewset(GenericViewSet, CreateModelMixin):
-    serializer_class = Bank2BankTransactionSerializer
+class Bank2WalletViewset(GenericViewSet, CreateModelMixin):
+    serializer_class = Bank2WalletTransactionSerializer
     queryset = InterbankSettlement.objects.all()
     permission_classes = [IsAuthenticated]
 

@@ -110,6 +110,73 @@ class IntraBankTransferSerializer(serializers.ModelSerializer):
         )
 
 
+class TransactionSerializer(serializers.ModelSerializer):
+    transaction_type_display = serializers.CharField(source='get_transaction_type_display', read_only=True)
+    other_party = serializers.SerializerMethodField()
+    direction = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'id',
+            'amount',
+            'transaction_type',
+            'transaction_type_display',
+            'remarks',
+            'timestamp',
+            'other_party',
+            'direction',
+            'status'
+        ]
+
+    def get_other_party(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return None
+            
+        user_account = request.user.account.first()
+        if not user_account:
+            return None
+
+        if obj.source_account == user_account:
+            # Outgoing transaction
+            if obj.destination_account:
+                return {
+                    'account_number': obj.destination_account.account_number,
+                    'name': obj.destination_account.owner.get_full_name() if obj.destination_account.owner else 'Unknown'
+                }
+            return {
+                'account_number': None,
+                'name': 'External Account'
+            }
+        else:
+            # Incoming transaction
+            if obj.source_account:
+                return {
+                    'account_number': obj.source_account.account_number,
+                    'name': obj.source_account.owner.get_full_name() if obj.source_account.owner else 'Unknown'
+                }
+            return {
+                'account_number': None,
+                'name': 'External Account'
+            }
+
+    def get_direction(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return None
+            
+        user_account = request.user.account.first()
+        if not user_account:
+            return None
+
+        return 'outgoing' if obj.source_account == user_account else 'incoming'
+
+    def get_status(self, obj):
+        return 'completed'  # You can add more sophisticated status logic here
+
+
 # I will Teach Myself [Matu Sunuwawa]
     # Complete Transaction Flow
     # 1. Client Makes API Request

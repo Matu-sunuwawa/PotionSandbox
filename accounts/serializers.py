@@ -147,17 +147,34 @@ class UserLoginSerializer(serializers.Serializer):
 class UserBalanceSerializer(serializers.ModelSerializer):
     balance = serializers.SerializerMethodField()
     currency = serializers.SerializerMethodField()
+    account_number = serializers.SerializerMethodField()
+    account_type = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['balance', 'currency']
+        fields = [
+            'first_name',
+            'last_name',
+            'phone_number',
+            'account_number',
+            'account_type',
+            'balance',
+            'currency'
+        ]
 
     def get_balance(self, obj):
-        return obj.balance
+        account = obj.account.first()
+        return account.balance if account else 0
 
     def get_currency(self, obj):
-        account = obj.account.first()  # Get the first associated account
-        if account:
-            return account.currency
-        return 'ETB'
+        account = obj.account.first()
+        return account.currency if account else 'ETB'
+
+    def get_account_number(self, obj):
+        account = obj.account.first()
+        return account.account_number if account else None
+
+    def get_account_type(self, obj):
+        account = obj.account.first()
+        return account.get_account_type_display() if account else None
 

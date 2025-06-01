@@ -13,7 +13,9 @@ from rest_framework.mixins import (
 )
 
 from rest_framework.viewsets import GenericViewSet
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.decorators import action
 
 from .models import *
 from .serializers import *
@@ -29,3 +31,18 @@ class RegisterViewset(GenericViewSet, CreateModelMixin):
     serializer_class = UserRegistrationSerializer
     queryset = User.objects.all()
     permission_classes = []
+
+
+
+class UserViewset(GenericViewSet):
+    permission_classes = [IsAuthenticated]
+    
+    @action(detail=False, methods=['get'])
+    def balance(self, request):
+        user = request.user
+        serializer = UserBalanceSerializer(user)
+        return Response(serializer.data)
+
+
+
+

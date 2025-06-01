@@ -143,3 +143,21 @@ class UserLoginSerializer(serializers.Serializer):
             "user": user,
         }
 
+
+class UserBalanceSerializer(serializers.ModelSerializer):
+    balance = serializers.SerializerMethodField()
+    currency = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ['balance', 'currency']
+
+    def get_balance(self, obj):
+        return obj.balance
+
+    def get_currency(self, obj):
+        account = obj.account.first()  # Get the first associated account
+        if account:
+            return account.currency
+        return 'ETB'
+

@@ -55,10 +55,11 @@ class User(AbstractUser):
 
     @property
     def balance(self):
-        if hasattr(self, 'account'):
-            return self.account.balance
+        account = self.account.first()  # Get the first associated account
+        if account:
+            return account.balance
         return 0
-
+    
     @staticmethod
     def normalize_phone_number(phone_number):
         match = re.search(phone_regex, phone_number)

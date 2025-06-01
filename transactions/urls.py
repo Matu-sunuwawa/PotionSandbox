@@ -6,6 +6,7 @@ from .views import *
 
 router = DefaultRouter()
 
+router.register("transactions", TransactionViewset, basename="transactions")
 router.register("user2user/transfer", User2UserViewset, basename="user-to-user-transaction")
 router.register('webhooks/test', WebhookTestViewset, basename='webhook-test')
 
